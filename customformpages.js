@@ -135,15 +135,13 @@ var CustomPage;
         let buttonArr = [];
         switch (boxType) {
             case BoxType.First:
-                buttonArr[0] = createButton(blockId, pageNo, ButtonType.Next);
-                buttonArr[0].addEventListener("click", () => { validatePage(requiredArr); });
+                buttonArr[0] = createButton(blockId, pageNo, ButtonType.Next, requiredArr);
                 break;
             case BoxType.Last:
                 buttonArr[0] = createButton(blockId, pageNo, ButtonType.Prev);
                 break;
             default:
-                buttonArr[1] = createButton(blockId, pageNo, ButtonType.Next);
-                buttonArr[1].addEventListener("click", () => { validatePage(requiredArr); });
+                buttonArr[1] = createButton(blockId, pageNo, ButtonType.Next, requiredArr);
                 buttonArr[0] = createButton(blockId, pageNo, ButtonType.Prev);
                 break;
         }
@@ -160,13 +158,18 @@ var CustomPage;
     CustomPage.setBoxes = setBoxes;
     function validatePage(required) {
         //TODO: VALIDATE the next click!
+        return false;
     }
-    function createButton(id, pageNo, buttonType) {
+    function createButton(id, pageNo, buttonType, required) {
         let type = buttonType == ButtonType.Next ? "Next" : "Previous";
         const button = createElement("div", `${id}-${type}-button-${pageNo}`, "CustomPage Button");
         button.innerText = type;
         let step = buttonType == ButtonType.Next ? pageNo + 1 : pageNo - 1;
         button.addEventListener("click", () => {
+            if (buttonType == ButtonType.Next && required != undefined) {
+                if (!validatePage(required))
+                    return false;
+            }
             document.documentElement.style.setProperty("--CustomPage-step", `${step}`);
         });
         return button;

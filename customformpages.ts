@@ -163,15 +163,13 @@ namespace CustomPage{
         let buttonArr: HTMLDivElement[] = [];
         switch (boxType) {
             case BoxType.First:
-                buttonArr[0] = createButton(blockId, pageNo, ButtonType.Next);
-                buttonArr[0].addEventListener("click", ()=>{validatePage(requiredArr)});
+                buttonArr[0] = createButton(blockId, pageNo, ButtonType.Next, requiredArr);
                 break;
             case BoxType.Last:
                 buttonArr[0] = createButton(blockId, pageNo, ButtonType.Prev);
                 break;
             default:
-                buttonArr[1] = createButton(blockId, pageNo, ButtonType.Next);
-                buttonArr[1].addEventListener("click", ()=>{validatePage(requiredArr)});
+                buttonArr[1] = createButton(blockId, pageNo, ButtonType.Next, requiredArr);
                 buttonArr[0] = createButton(blockId, pageNo, ButtonType.Prev);
                 break;
         }
@@ -189,11 +187,12 @@ namespace CustomPage{
         return element.id;
     }
 
-    function validatePage(required: HTMLElement[]){
+    function validatePage(required: HTMLElement[]): boolean{
         //TODO: VALIDATE the next click!
+        return false;
     }
     
-    function createButton(id: string, pageNo: number, buttonType: ButtonType): HTMLDivElement{
+    function createButton(id: string, pageNo: number, buttonType: ButtonType, required?: HTMLElement[]): HTMLDivElement{
         
         let type: string = buttonType == ButtonType.Next ? "Next" : "Previous";
 
@@ -203,6 +202,9 @@ namespace CustomPage{
         let step: number = buttonType == ButtonType.Next ? pageNo + 1 : pageNo - 1;
         
         button.addEventListener("click",()=>{
+            if(buttonType == ButtonType.Next && required != undefined){
+                if(!validatePage(required)) return false;
+            }
             document.documentElement.style.setProperty("--CustomPage-step", `${step}`);
         })
     
