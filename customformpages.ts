@@ -4,7 +4,8 @@ Squarespace Custom Pages for Forms
 
 type Page = {
     id: string,
-    fields: string[]
+    fields: string[],
+    required: string[]
 };
 
 enum BoxType{
@@ -16,6 +17,7 @@ enum ButtonType{
     Next,
     Prev
 }
+let custompageStep = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -30,11 +32,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const blockId: string = block.id;
 
         let fieldArray: string[] = [];
-        let pageList: string[] = [];
+        let requiredArr: string[] = [];
+
+        let boxList: string[] = [];
         let currentPage: Page;
         let pageCount: number = 0;
         let findZero: boolean = false;
-        
+        let pageArr: Page[] = [];
         
         //#region Initiator Loop
         //loop through all forms (should be just 1)
@@ -54,7 +58,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 const fieldChildren: Array<HTMLElement> = Array.from(<HTMLCollectionOf<HTMLElement>>fields.children);
                 for (let field of fieldChildren){
                     let found: boolean = false;
-                    fieldArray[count] = field.id;
+
+                    const fieldId = field.id;
+                    fieldArray[count] = fieldId;
+                    if(field.className.indexOf("required") != -1) requiredArr[count] = fieldId;
 
                     //check if we're in a "Custom Page=" field...
                     if(field.className == "form-item section"){
@@ -74,18 +81,17 @@ document.addEventListener("DOMContentLoaded", () => {
                                 return false;
                             }
 
-                            currentPage = {id: id, fields: fieldArray}; 
+                            currentPage = {id: id, fields: fieldArray, required: requiredArr}; 
+                            pageArr[pageNo] = currentPage;
 
                             //page 0 can have parameters that apply to all other pages
-                            if (pageNo == 0) {
-                                findZero = true;
-                                pageList[pageNo] = CustomPage.setBoxes(blockId, pageNo, currentPage, BoxType.First);
-                            } else {
-                                pageList[pageNo] = CustomPage.setBoxes(blockId, pageNo, currentPage);
-                            }
+                            if (pageNo == 0) findZero = true;
+                            boxList[pageNo] = CustomPage.setBoxes(blockId, pageNo, currentPage);
+                            
 
                             pageCount++;
                             fieldArray = [];
+                            requiredArr = [];
                             count = 0;
                             found = true;
                         }
@@ -95,8 +101,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 //we put the rest of fields into the last box
-                let finalPage: Page = {id: blockId, fields: fieldArray};
-                pageList[pageCount] = CustomPage.setBoxes(blockId, pageCount, finalPage, BoxType.Last, submitButton);
+                let finalPage: Page = {id: blockId, fields: fieldArray, required: requiredArr};
+                pageArr[pageCount] = finalPage;
+
+                boxList[pageCount] = CustomPage.setBoxes(blockId, pageCount, finalPage, BoxType.Last, submitButton);
                 
                 //we create the container and the overflow wrapper
                 const container = CustomPage.createElement("div", `${blockId}-CustomPage-container`, "CustomPage-container");
@@ -108,8 +116,42 @@ document.addEventListener("DOMContentLoaded", () => {
                 const steps = CustomPage.createSteps(blockId, pageCount);
                 fields.prepend(steps);
 
+                //Make the nav buttons here instead of on the loop
+                //need on click logic to move 
+                const navButtons = function () {
+
+                    //create the button container
+                    const bttnContainer = CustomPage.createElement("div", `${blockId}-CustomPage-button-container`, "CustomPage-buttonContainer")
+                    fields.append(bttnContainer);
+
+                    const next = CustomPage.createElement("div", `${blockId}-next-button`, `CustomPage-button`);
+                    next.innerText = "Next";
+                    const prev = CustomPage.createElement("div", `${blockId}-prev-button`, `CustomPage-button`);
+                    prev.innerText = "Previous";
+
+                    next.addEventListener("click", ()=>{
+                        if (!CustomPage.validatePage(pageArr[custompageStep].required)) return false;
+                        if (custompageStep != pageCount) custompageStep++;
+                        if (custompageStep == pageCount) prev.setAttribute("display", "none");
+                        document.documentElement.style.setProperty("--CustomPage-step", `${custompageStep}`);
+                    });
+
+                    prev.addEventListener("click", ()=>{
+                        if (custompageStep != 0) custompageStep--;
+                        if (custompageStep == 0) prev.setAttribute("display", "none");
+                        document.documentElement.style.setProperty("--CustomPage-step", `${custompageStep}`);
+                    });
+
+                    bttnContainer.append(next);
+                    bttnContainer.prepend(prev);
+
+                }
+                navButtons();
+
+
+
                 //We populate the container, moving every "page" into it
-                CustomPage.setContainer(blockId, pageList);
+                CustomPage.setContainer(blockId, boxList);
                 overflow.append(container);
                 
                 //we add the variables to the css after knowing the page count
@@ -157,7 +199,8 @@ namespace CustomPage{
             //click event to go to X page
             wrap.addEventListener("click", (e)=>{
                 if(wrap.getAttribute("custompage-step-check") == "true") {
-                    document.documentElement.style.setProperty("--CustomPage-step", `${i}`);
+                    custompageStep = i;
+                    document.documentElement.style.setProperty("--CustomPage-step", `${custompageStep}`);
                     radio.checked = true;
                 } else { 
                     e.preventDefault();
@@ -187,39 +230,13 @@ namespace CustomPage{
         //create & position box
         const element = createElement("div", `${blockId}-CustomPage-box-${pageNo}`, "CustomPage-page");
         const fieldArr: string[] = page.fields;
-        let requiredArr: HTMLElement[] = [];
+    
         document.getElementById(fieldArr[fieldArr.length - 1])?.after(element);
     
         //populate box
         for (let field of fieldArr){
             const fieldElement = <HTMLElement>document.getElementById(field)
             element.append(fieldElement);
-
-            //build a list of required fields
-            if(fieldElement.className.indexOf("required") != -1) requiredArr.push(fieldElement);
-        }
-
-        //create the button container
-        const bttnContainer = createElement("div", `${blockId}-CustomPage-button-container-${pageNo}`, "CustomPage-buttonContainer")
-        element.append(bttnContainer);
-    
-        //add nav buttons
-        let buttonArr: HTMLDivElement[] = [];
-        switch (boxType) {
-            case BoxType.First:
-                buttonArr[0] = createButton(blockId, pageNo, ButtonType.Next, requiredArr);
-                break;
-            case BoxType.Last:
-                buttonArr[0] = createButton(blockId, pageNo, ButtonType.Prev);
-                break;
-            default:
-                buttonArr[1] = createButton(blockId, pageNo, ButtonType.Next, requiredArr);
-                buttonArr[0] = createButton(blockId, pageNo, ButtonType.Prev);
-                break;
-        }
-    
-        for (let button of buttonArr){
-            bttnContainer.append(button);
         }
 
         //if it's last box, append the submit button
@@ -245,18 +262,16 @@ namespace CustomPage{
             }
         });
         observer.observe(element, config);
-        
     
         //finally return the box id to be set in main container
         return element.id;
     }
 
-
-
-    function validatePage(required: HTMLElement[]): boolean{
+    export function validatePage(required: string[]): boolean{
         let test = true;
         let result: boolean;
-        for (let field of required){
+        const requiredElements = required.map(v => <HTMLElement>document.getElementById(v));
+        for (let field of requiredElements){
             field.className = field.className.replace("error", "");
             result = true;
             switch (true) {
@@ -305,36 +320,13 @@ namespace CustomPage{
         }
         return true;
     }
+
     function validateDefault(field: HTMLElement): boolean{
         const inputs = field.getElementsByTagName("input");
         for(let input of inputs){
             if (input.value.length == 0) return false;
         }
         return true;
-    }
-
-    function createButton(id: string, pageNo: number, buttonType: ButtonType, required?: HTMLElement[]): HTMLDivElement{
-        
-        let type: string = buttonType == ButtonType.Next ? "Next" : "Previous";
-
-        const button: HTMLDivElement = <HTMLDivElement>createElement("div", `${id}-${type}-button-${pageNo}`, "CustomPage-button");
-        button.innerText = type;
-    
-        let step: number = buttonType == ButtonType.Next ? pageNo + 1 : pageNo - 1;
-        
-        button.addEventListener("click",()=>{
-            if(buttonType == ButtonType.Next && required != undefined){
-                if(!validatePage(required)) return false;
-            }
-            document.documentElement.style.setProperty("--CustomPage-step", `${step}`);
-            const radioId = `${id}-CustomPage-step-${step}`;
-            const radio = <HTMLInputElement>document.getElementById(`${radioId}-input`);
-            radio.checked = true;
-            const radioWrap = document.getElementById(radioId);
-            radioWrap?.setAttribute("custompage-step-check", "true");
-        })
-    
-        return button;
     }
     
     export function setContainer(blockId: string, pageList: string[]){
