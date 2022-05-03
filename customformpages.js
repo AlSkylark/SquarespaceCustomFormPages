@@ -13,6 +13,7 @@ var ButtonType;
     ButtonType[ButtonType["Next"] = 0] = "Next";
     ButtonType[ButtonType["Prev"] = 1] = "Prev";
 })(ButtonType || (ButtonType = {}));
+let custompageStep = 0;
 document.addEventListener("DOMContentLoaded", () => {
     const style = document.createElement("style");
     style.append(document.createTextNode(CustomPage.getCustomPageStyle()));
@@ -22,10 +23,12 @@ document.addEventListener("DOMContentLoaded", () => {
     for (let block of formBlocks) {
         const blockId = block.id;
         let fieldArray = [];
-        let pageList = [];
+        let requiredArr = [];
+        let boxList = [];
         let currentPage;
         let pageCount = 0;
         let findZero = false;
+        let pageArr = [];
         //#region Initiator Loop
         //loop through all forms (should be just 1)
         const formList = block.getElementsByTagName("form");
@@ -41,7 +44,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 const fieldChildren = Array.from(fields.children);
                 for (let field of fieldChildren) {
                     let found = false;
-                    fieldArray[count] = field.id;
+                    const fieldId = field.id;
+                    fieldArray[count] = fieldId;
+                    if (field.className.indexOf("required") != -1)
+                        requiredArr[count] = fieldId;
                     //check if we're in a "Custom Page=" field...
                     if (field.className == "form-item section") {
                         const title = field.firstElementChild;
@@ -58,17 +64,15 @@ document.addEventListener("DOMContentLoaded", () => {
                                 console.error(`${error} \n Found: ${title.innerText} \n The CustomPage value is not a number!`);
                                 return false;
                             }
-                            currentPage = { id: id, fields: fieldArray };
+                            currentPage = { id: id, fields: fieldArray, required: requiredArr };
+                            pageArr[pageNo] = currentPage;
                             //page 0 can have parameters that apply to all other pages
-                            if (pageNo == 0) {
+                            if (pageNo == 0)
                                 findZero = true;
-                                pageList[pageNo] = CustomPage.setBoxes(blockId, pageNo, currentPage, BoxType.First);
-                            }
-                            else {
-                                pageList[pageNo] = CustomPage.setBoxes(blockId, pageNo, currentPage);
-                            }
+                            boxList[pageNo] = CustomPage.setBoxes(blockId, pageNo, currentPage);
                             pageCount++;
                             fieldArray = [];
+                            requiredArr = [];
                             count = 0;
                             found = true;
                         }
@@ -77,8 +81,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         count++;
                 }
                 //we put the rest of fields into the last box
-                let finalPage = { id: blockId, fields: fieldArray };
-                pageList[pageCount] = CustomPage.setBoxes(blockId, pageCount, finalPage, BoxType.Last, submitButton);
+                let finalPage = { id: blockId, fields: fieldArray, required: requiredArr };
+                pageArr[pageCount] = finalPage;
+                boxList[pageCount] = CustomPage.setBoxes(blockId, pageCount, finalPage, BoxType.Last, submitButton);
                 //we create the container and the overflow wrapper
                 const container = CustomPage.createElement("div", `${blockId}-CustomPage-container`, "CustomPage-container");
                 fields.prepend(container);
@@ -87,8 +92,38 @@ document.addEventListener("DOMContentLoaded", () => {
                 //OPTIONAL HERE: Add step indicators! little balls maybe??? 
                 const steps = CustomPage.createSteps(blockId, pageCount);
                 fields.prepend(steps);
+                //Make the nav buttons here instead of on the loop
+                //need on click logic to move 
+                const navButtons = function () {
+                    //create the button container
+                    const bttnContainer = CustomPage.createElement("div", `${blockId}-CustomPage-button-container`, "CustomPage-buttonContainer");
+                    fields.append(bttnContainer);
+                    const next = CustomPage.createElement("div", `${blockId}-next-button`, `CustomPage-button`);
+                    next.innerText = "Next";
+                    const prev = CustomPage.createElement("div", `${blockId}-prev-button`, `CustomPage-button`);
+                    prev.innerText = "Previous";
+                    next.addEventListener("click", () => {
+                        if (!CustomPage.validatePage(pageArr[custompageStep].required))
+                            return false;
+                        if (custompageStep != pageCount)
+                            custompageStep++;
+                        if (custompageStep == pageCount)
+                            prev.setAttribute("display", "none");
+                        document.documentElement.style.setProperty("--CustomPage-step", `${custompageStep}`);
+                    });
+                    prev.addEventListener("click", () => {
+                        if (custompageStep != 0)
+                            custompageStep--;
+                        if (custompageStep == 0)
+                            prev.setAttribute("display", "none");
+                        document.documentElement.style.setProperty("--CustomPage-step", `${custompageStep}`);
+                    });
+                    bttnContainer.append(next);
+                    bttnContainer.prepend(prev);
+                };
+                navButtons();
                 //We populate the container, moving every "page" into it
-                CustomPage.setContainer(blockId, pageList);
+                CustomPage.setContainer(blockId, boxList);
                 overflow.append(container);
                 //we add the variables to the css after knowing the page count
                 const root = document.documentElement;
@@ -125,7 +160,8 @@ var CustomPage;
             //click event to go to X page
             wrap.addEventListener("click", (e) => {
                 if (wrap.getAttribute("custompage-step-check") == "true") {
-                    document.documentElement.style.setProperty("--CustomPage-step", `${i}`);
+                    custompageStep = i;
+                    document.documentElement.style.setProperty("--CustomPage-step", `${custompageStep}`);
                     radio.checked = true;
                 }
                 else {
@@ -154,35 +190,11 @@ var CustomPage;
         //create & position box
         const element = createElement("div", `${blockId}-CustomPage-box-${pageNo}`, "CustomPage-page");
         const fieldArr = page.fields;
-        let requiredArr = [];
         (_a = document.getElementById(fieldArr[fieldArr.length - 1])) === null || _a === void 0 ? void 0 : _a.after(element);
         //populate box
         for (let field of fieldArr) {
             const fieldElement = document.getElementById(field);
             element.append(fieldElement);
-            //build a list of required fields
-            if (fieldElement.className.indexOf("required") != -1)
-                requiredArr.push(fieldElement);
-        }
-        //create the button container
-        const bttnContainer = createElement("div", `${blockId}-CustomPage-button-container-${pageNo}`, "CustomPage-buttonContainer");
-        element.append(bttnContainer);
-        //add nav buttons
-        let buttonArr = [];
-        switch (boxType) {
-            case BoxType.First:
-                buttonArr[0] = createButton(blockId, pageNo, ButtonType.Next, requiredArr);
-                break;
-            case BoxType.Last:
-                buttonArr[0] = createButton(blockId, pageNo, ButtonType.Prev);
-                break;
-            default:
-                buttonArr[1] = createButton(blockId, pageNo, ButtonType.Next, requiredArr);
-                buttonArr[0] = createButton(blockId, pageNo, ButtonType.Prev);
-                break;
-        }
-        for (let button of buttonArr) {
-            bttnContainer.append(button);
         }
         //if it's last box, append the submit button
         if (boxType == BoxType.Last && submitButton != undefined) {
@@ -214,7 +226,8 @@ var CustomPage;
     function validatePage(required) {
         let test = true;
         let result;
-        for (let field of required) {
+        const requiredElements = required.map(v => document.getElementById(v));
+        for (let field of requiredElements) {
             field.className = field.className.replace("error", "");
             result = true;
             switch (true) {
@@ -243,6 +256,7 @@ var CustomPage;
         }
         return test;
     }
+    CustomPage.validatePage = validatePage;
     function validateAddress(field) {
         const inputs = field.getElementsByTagName("input");
         for (let input of inputs) {
@@ -260,25 +274,6 @@ var CustomPage;
                 return false;
         }
         return true;
-    }
-    function createButton(id, pageNo, buttonType, required) {
-        let type = buttonType == ButtonType.Next ? "Next" : "Previous";
-        const button = createElement("div", `${id}-${type}-button-${pageNo}`, "CustomPage-button");
-        button.innerText = type;
-        let step = buttonType == ButtonType.Next ? pageNo + 1 : pageNo - 1;
-        button.addEventListener("click", () => {
-            if (buttonType == ButtonType.Next && required != undefined) {
-                if (!validatePage(required))
-                    return false;
-            }
-            document.documentElement.style.setProperty("--CustomPage-step", `${step}`);
-            const radioId = `${id}-CustomPage-step-${step}`;
-            const radio = document.getElementById(`${radioId}-input`);
-            radio.checked = true;
-            const radioWrap = document.getElementById(radioId);
-            radioWrap === null || radioWrap === void 0 ? void 0 : radioWrap.setAttribute("custompage-step-check", "true");
-        });
-        return button;
     }
     function setContainer(blockId, pageList) {
         const container = document.getElementById(`${blockId}-CustomPage-container`);
