@@ -132,7 +132,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 fields.prepend(overflow);
 
                 //OPTIONAL HERE: Add step indicators! little balls maybe??? 
-                const steps = CustomPage.createSteps(mainInfo[formCount], pageCount);
+                const steps = CustomPage.createSteps(mainInfo[formCount], pageCount, boxList);
                 fields.prepend(steps);
 
                 //Insert the nav buttons here
@@ -162,12 +162,14 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 namespace CustomPage{
+
     export function animateContainer(blockId: string, target: HTMLElement, from: HTMLElement, direction?: Direction){
         const root = document.documentElement;
         const container = <HTMLElement>document.getElementById(`${blockId}-CustomPage-container`);
 
         let width = getComputedStyle(root).getPropertyValue("--CustomPage-size");
-        //root.style.setProperty("--CustomPage-container-size", `calc(${width} * 2)`);
+        root.style.setProperty("--CustomPage-container-size", `calc(${width} * 2)`);
+
         const keyframes = [
             {transform: `translateX(calc(${direction == Direction.Forward ? 0 : width} * -1))`},
             {transform: `translateX(calc(${direction == Direction.Forward ? width : 0} * -1))`}
@@ -175,15 +177,12 @@ namespace CustomPage{
 
         //begin animation
         from.classList.remove("CustomPage-toggle");
-        from.animate(keyframes,{duration: 200, iterations: 1}).onfinish = ()=>{
-            from.classList.add("CustomPage-toggle");
-            target.classList.remove("CustomPage-toggle");
-        }
+        target.classList.remove("CustomPage-toggle");
 
-        // container.animate(keyframes, {iterations: 1, duration: 200, }).onfinish = ()=>{
-        //     from.classList.add("CustomPage-toggle");
-        //     root.style.setProperty("--CustomPage-container-size", width);
-        // };
+        container.animate(keyframes, {iterations: 1, duration: 200, }).onfinish = ()=>{
+            from.classList.add("CustomPage-toggle");
+            root.style.setProperty("--CustomPage-container-size", width);
+        };
 
     }
 
@@ -279,7 +278,7 @@ namespace CustomPage{
         return bttnContainer;
     }
 
-    export function createSteps(mainInfo: Forms, pageCount: number): HTMLElement{
+    export function createSteps(mainInfo: Forms, pageCount: number, boxList: string[]): HTMLElement{
         const id = mainInfo.id;
         const radioName = `${id}-CustomPage-steps`;
         const wrapper = createElement("div", radioName, "CustomPage-steps-wrapper");
@@ -307,8 +306,9 @@ namespace CustomPage{
             //click event to go to X page
             wrap.addEventListener("click", (e)=>{
                 if(wrap.getAttribute("custompage-step-check") == "true") {
+                    let oldStep = mainInfo.step;
                     mainInfo.step = i;
-                    //document.documentElement.style.setProperty("--CustomPage-step", `${mainInfo.step}`);
+                    movePages(mainInfo, boxList, oldStep);
                     radio.checked = true;
                     renderNav(mainInfo, pageCount);
                 } else { 
