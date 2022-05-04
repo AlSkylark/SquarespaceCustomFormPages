@@ -7,21 +7,33 @@ var BoxType;
     BoxType[BoxType["First"] = 0] = "First";
     BoxType[BoxType["Last"] = 1] = "Last";
 })(BoxType || (BoxType = {}));
-;
 var ButtonType;
 (function (ButtonType) {
     ButtonType[ButtonType["Next"] = 0] = "Next";
     ButtonType[ButtonType["Prev"] = 1] = "Prev";
 })(ButtonType || (ButtonType = {}));
-let custompageStep = 0;
+var Direction;
+(function (Direction) {
+    Direction[Direction["Forward"] = 0] = "Forward";
+    Direction[Direction["Backward"] = 1] = "Backward";
+})(Direction || (Direction = {}));
+var AnimType;
+(function (AnimType) {
+    AnimType[AnimType["Start"] = 0] = "Start";
+    AnimType[AnimType["End"] = 1] = "End";
+})(AnimType || (AnimType = {}));
+let mainInfo = [];
 document.addEventListener("DOMContentLoaded", () => {
+    //TODO: Maybe a loading form thingie?
     const style = document.createElement("style");
     style.append(document.createTextNode(CustomPage.getCustomPageStyle()));
     document.head.append(style);
-    //loop through sqs-block
+    //loop through sqs-block-form
+    let formCount = 0;
     const formBlocks = document.getElementsByClassName("sqs-block-form");
     for (let block of formBlocks) {
         const blockId = block.id;
+        mainInfo[formCount] = { id: blockId, step: 0 };
         let fieldArray = [];
         let requiredArr = [];
         let boxList = [];
@@ -51,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     //check if we're in a "Custom Page=" field...
                     if (field.className == "form-item section") {
                         const title = field.firstElementChild;
-                        //found!
+                        //found custompage=0 or next custompage!
                         if (title.className == "title" && title.innerText.indexOf("CustomPage=") != -1) {
                             field.style.display = "none";
                             const id = field.id;
@@ -90,56 +102,133 @@ document.addEventListener("DOMContentLoaded", () => {
                 const overflow = CustomPage.createElement("div", `${blockId}-CustomPage-overflow`, "CustomPage-overflow");
                 fields.prepend(overflow);
                 //OPTIONAL HERE: Add step indicators! little balls maybe??? 
-                const steps = CustomPage.createSteps(blockId, pageCount);
+                const steps = CustomPage.createSteps(mainInfo[formCount], pageCount);
                 fields.prepend(steps);
-                //Make the nav buttons here instead of on the loop
-                //need on click logic to move 
-                const navButtons = function () {
-                    //create the button container
-                    const bttnContainer = CustomPage.createElement("div", `${blockId}-CustomPage-button-container`, "CustomPage-buttonContainer");
-                    fields.append(bttnContainer);
-                    const next = CustomPage.createElement("div", `${blockId}-next-button`, `CustomPage-button`);
-                    next.innerText = "Next";
-                    const prev = CustomPage.createElement("div", `${blockId}-prev-button`, `CustomPage-button`);
-                    prev.innerText = "Previous";
-                    next.addEventListener("click", () => {
-                        if (!CustomPage.validatePage(pageArr[custompageStep].required))
-                            return false;
-                        if (custompageStep != pageCount)
-                            custompageStep++;
-                        if (custompageStep == pageCount)
-                            prev.setAttribute("display", "none");
-                        document.documentElement.style.setProperty("--CustomPage-step", `${custompageStep}`);
-                    });
-                    prev.addEventListener("click", () => {
-                        if (custompageStep != 0)
-                            custompageStep--;
-                        if (custompageStep == 0)
-                            prev.setAttribute("display", "none");
-                        document.documentElement.style.setProperty("--CustomPage-step", `${custompageStep}`);
-                    });
-                    bttnContainer.append(next);
-                    bttnContainer.prepend(prev);
-                };
-                navButtons();
+                //Insert the nav buttons here
+                const buttons = CustomPage.navButtons(mainInfo[formCount], pageCount, pageArr, boxList);
+                fields.append(buttons);
                 //We populate the container, moving every "page" into it
                 CustomPage.setContainer(blockId, boxList);
                 overflow.append(container);
+                //render pages
+                CustomPage.movePages(mainInfo[formCount], boxList);
                 //we add the variables to the css after knowing the page count
                 const root = document.documentElement;
                 root.style.setProperty("--CustomPage-size", formSize);
-                root.style.setProperty("--CustomPage-container-size", `calc(${formSize} * ${pageCount + 1})`);
+                //root.style.setProperty("--CustomPage-container-size", `calc(${formSize} * ${pageCount + 1})`);
+                root.style.setProperty("--CustomPage-container-size", formSize);
             }
         }
         //#endregion
-        if (!findZero)
-            console.error("Found no initial Custom Page! Make sure to have at least one CustomPage=0 in your separator list.");
-        return false;
+        formCount++;
     }
 });
 var CustomPage;
 (function (CustomPage) {
-    function createSteps(id, pageCount) {
+    function animateContainer(blockId, target, from, direction) {
+        const root = document.documentElement;
+        const container = document.getElementById(`${blockId}-CustomPage-container`);
+        let width = getComputedStyle(root).getPropertyValue("--CustomPage-size");
+        //root.style.setProperty("--CustomPage-container-size", `calc(${width} * 2)`);
+        const keyframes = [
+            { transform: `translateX(calc(${direction == Direction.Forward ? 0 : width} * -1))` },
+            { transform: `translateX(calc(${direction == Direction.Forward ? width : 0} * -1))` }
+        ];
+        //begin animation
+        from.classList.remove("CustomPage-toggle");
+        from.animate(keyframes, { duration: 200, iterations: 1 }).onfinish = () => {
+            from.classList.add("CustomPage-toggle");
+            target.classList.remove("CustomPage-toggle");
+        };
+        // container.animate(keyframes, {iterations: 1, duration: 200, }).onfinish = ()=>{
+        //     from.classList.add("CustomPage-toggle");
+        //     root.style.setProperty("--CustomPage-container-size", width);
+        // };
+    }
+    CustomPage.animateContainer = animateContainer;
+    function movePages(mainInfo, boxList, oldStep) {
+        let animation = true;
+        if (animation && oldStep != undefined) {
+            let target = document.getElementById(boxList[mainInfo.step]);
+            let from = document.getElementById(boxList[oldStep]);
+            for (let i = 0; i < boxList.length; i++) {
+                const pageEl = document.getElementById(boxList[i]);
+                pageEl.classList.add("CustomPage-toggle");
+            }
+            let direction = mainInfo.step > oldStep ? Direction.Forward : Direction.Backward;
+            animateContainer(mainInfo.id, target, from, direction);
+        }
+        else {
+            for (let i = 0; i < boxList.length; i++) {
+                const pageEl = document.getElementById(boxList[i]);
+                if (i == mainInfo.step) {
+                    pageEl.classList.remove("CustomPage-toggle");
+                }
+                else {
+                    pageEl.classList.add("CustomPage-toggle");
+                }
+            }
+        }
+    }
+    CustomPage.movePages = movePages;
+    function moveRadios(mainInfo) {
+        const radioId = `${mainInfo.id}-CustomPage-step-${mainInfo.step}`;
+        const radio = document.getElementById(`${radioId}-input`);
+        radio.checked = true;
+        const radioWrap = document.getElementById(radioId);
+        radioWrap === null || radioWrap === void 0 ? void 0 : radioWrap.setAttribute("custompage-step-check", "true");
+    }
+    function renderNav(mainInfo, pageCount) {
+        const prev = document.getElementById(`${mainInfo.id}-prev-button`);
+        const next = document.getElementById(`${mainInfo.id}-next-button`);
+        prev.classList.remove("CustomPage-toggle");
+        next.classList.remove("CustomPage-toggle");
+        switch (mainInfo.step) {
+            case 0:
+                prev.classList.add("CustomPage-toggle");
+                break;
+            case pageCount:
+                next.classList.add("CustomPage-toggle");
+                break;
+        }
+    }
+    function navButtons(mainInfo, pageCount, pageArr, boxList) {
+        const blockId = mainInfo.id;
+        //create the button container
+        const bttnContainer = CustomPage.createElement("div", `${blockId}-CustomPage-button-container`, "CustomPage-buttonContainer");
+        const next = CustomPage.createElement("div", `${blockId}-next-button`, `CustomPage-button`);
+        next.innerText = "Next";
+        next.tabIndex = 0;
+        const prev = CustomPage.createElement("div", `${blockId}-prev-button`, `CustomPage-button`);
+        prev.innerText = "Previous";
+        prev.classList.add("CustomPage-toggle");
+        prev.tabIndex = 0;
+        const move = function (buttonType) {
+            const oldStep = mainInfo.step;
+            if (buttonType == ButtonType.Next) {
+                if (!CustomPage.validatePage(pageArr[mainInfo.step].required))
+                    return false;
+                if (mainInfo.step != pageCount)
+                    mainInfo.step++;
+            }
+            else {
+                if (mainInfo.step != 0)
+                    mainInfo.step--;
+            }
+            //document.documentElement.style.setProperty("--CustomPage-step", `${mainInfo.step}`);
+            renderNav(mainInfo, pageCount);
+            moveRadios(mainInfo);
+            movePages(mainInfo, boxList, oldStep);
+        };
+        next.addEventListener("click", () => { move(ButtonType.Next); });
+        prev.addEventListener("click", () => { move(ButtonType.Prev); });
+        bttnContainer.append(next);
+        bttnContainer.prepend(prev);
+        return bttnContainer;
+    }
+    CustomPage.navButtons = navButtons;
+    function createSteps(mainInfo, pageCount) {
+        const id = mainInfo.id;
         const radioName = `${id}-CustomPage-steps`;
         const wrapper = createElement("div", radioName, "CustomPage-steps-wrapper");
         for (let i = 0; i <= pageCount; i++) {
@@ -160,9 +249,10 @@ var CustomPage;
             //click event to go to X page
             wrap.addEventListener("click", (e) => {
                 if (wrap.getAttribute("custompage-step-check") == "true") {
-                    custompageStep = i;
-                    document.documentElement.style.setProperty("--CustomPage-step", `${custompageStep}`);
+                    mainInfo.step = i;
+                    //document.documentElement.style.setProperty("--CustomPage-step", `${mainInfo.step}`);
                     radio.checked = true;
+                    renderNav(mainInfo, pageCount);
                 }
                 else {
                     e.preventDefault();
@@ -228,7 +318,7 @@ var CustomPage;
         let result;
         const requiredElements = required.map(v => document.getElementById(v));
         for (let field of requiredElements) {
-            field.className = field.className.replace("error", "");
+            field.classList.remove("error");
             result = true;
             switch (true) {
                 case (field.className.indexOf("address") != -1):
@@ -250,7 +340,7 @@ var CustomPage;
             }
             if (result)
                 continue;
-            field.className += " error";
+            field.classList.add("error");
             //TODO: <div class="field-error">THIS FIELD is required.</div> add these
             test = false;
         }
@@ -290,17 +380,25 @@ var CustomPage;
                 --CustomPage-container-size: 0px;
                 --CustomPage-size: 0px;
                 --CustomPage-step: 0;
-                --CustomPage-animation-time: 0ms;
+                --CustomPage-animation-time: 300ms;
+            }
+            .CustomPage-invisible{
+                visibility: hidden;
+            }
+            .CustomPage-toggle{
+                display: none;
             }
             .CustomPage-overflow{
                 width: var(--CustomPage-size);
                 overflow: hidden;
             }
+            .CustomPage-animation{
+                transform: translateX(calc( (var(--CustomPage-size) * var(--CustomPage-step)) * -1 ));
+                transition: transform var(--CustomPage-animation-time) ease-in-out;
+            }
             .CustomPage-container{
                 width: var(--CustomPage-container-size);
                 display: flex;
-                transform: translateX(calc( (var(--CustomPage-size) * var(--CustomPage-step)) * -1 ));
-                transition: var(--CustomPage-animation-time) ease-in-out;
             }
             .CustomPage-page{
                 width: var(--CustomPage-size);
