@@ -5,8 +5,10 @@ Squarespace Custom Pages for Forms
 type Page = {
     id: string,
     fields: string[],
-    required: string[]
+    required: string[],
+    params?: Map<any,any>
 }
+
 
 type Forms = {
     id: string,
@@ -100,11 +102,16 @@ document.addEventListener("DOMContentLoaded", () => {
                                 return false;
                             }
 
-                            currentPage = {id: id, fields: fieldArray, required: requiredArr}; 
-                            pageArr[pageNo] = currentPage;
-
                             //page 0 can have parameters that apply to all other pages
-                            if (pageNo == 0) findZero = true;
+                            let pageParams = new Map();
+                            if (pageNo == 0) {
+                                findZero = true;
+                                const description = <HTMLElement>field?.children[1];
+                                if (description != undefined)
+                                pageParams = CustomPage.processParams(description.innerText);
+                            }
+                            currentPage = {id: id, fields: fieldArray, required: requiredArr, params: pageParams}; 
+                            pageArr[pageNo] = currentPage;
                             boxList[pageNo] = CustomPage.setBoxes(blockId, pageNo, currentPage);
                             
 
@@ -131,9 +138,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 const overflow = CustomPage.createElement("div", `${blockId}-CustomPage-overflow`, "CustomPage-overflow");
                 fields.prepend(overflow);
 
-                //OPTIONAL HERE: Add step indicators! little balls maybe??? 
-                const steps = CustomPage.createSteps(mainInfo[formCount], pageCount, boxList);
-                fields.prepend(steps);
+                //Step indicators, should be optional
+                if(pageArr[0]?.params?.get("IncludeSteps") == "true"){
+                    const steps = CustomPage.createSteps(mainInfo[formCount], pageCount, boxList);
+                    fields.prepend(steps);
+                }
 
                 //Insert the nav buttons here
                 const buttons = CustomPage.navButtons(mainInfo[formCount], pageCount, pageArr, boxList);
@@ -150,7 +159,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 //we add the variables to the css after knowing the page count
                 const root = document.documentElement;
                 root.style.setProperty("--CustomPage-size", formSize);
-                //root.style.setProperty("--CustomPage-container-size", `calc(${formSize} * ${pageCount + 1})`);
                 root.style.setProperty("--CustomPage-container-size", formSize);
             }
 
@@ -163,7 +171,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
 namespace CustomPage{
 
-    export function animateContainer(blockId: string, target: HTMLElement, from: HTMLElement, direction?: Direction){
+    export function processParams(parameters: string){
+        const params = new Map();
+        const initArr = parameters.split(";");
+        for (let item of initArr){
+            const split = item.split("=");
+            params.set(split[0], split[1]);
+        }
+        return params;
+    }
+
+    function animateContainer(blockId: string, target: HTMLElement, from: HTMLElement, direction?: Direction){
         const root = document.documentElement;
         const container = <HTMLElement>document.getElementById(`${blockId}-CustomPage-container`);
 
@@ -243,6 +261,7 @@ namespace CustomPage{
 
     export function navButtons(mainInfo: Forms, pageCount: number, pageArr: Page[], boxList: string[]): HTMLElement {
         const blockId = mainInfo.id;
+        const hasSteps = pageArr[0]?.params?.get("IncludeSteps") == "true" ? true : false;
         //create the button container
         const bttnContainer = CustomPage.createElement("div", `${blockId}-CustomPage-button-container`, "CustomPage-buttonContainer")
 
@@ -265,7 +284,7 @@ namespace CustomPage{
 
             //document.documentElement.style.setProperty("--CustomPage-step", `${mainInfo.step}`);
             renderNav(mainInfo, pageCount);
-            moveRadios(mainInfo);
+            if (hasSteps) moveRadios(mainInfo);
             movePages(mainInfo, boxList, oldStep);
         }
 
@@ -306,8 +325,17 @@ namespace CustomPage{
             //click event to go to X page
             wrap.addEventListener("click", (e)=>{
                 if(wrap.getAttribute("custompage-step-check") == "true") {
+                    if((<HTMLElement>e.target).tagName.indexOf("LABEL") == -1) {
+                        e.preventDefault();
+                        return false;
+                    } 
+                    
                     let oldStep = mainInfo.step;
                     mainInfo.step = i;
+                    if (oldStep == i) {
+                        e.preventDefault(); 
+                        return false;
+                    }
                     movePages(mainInfo, boxList, oldStep);
                     radio.checked = true;
                     renderNav(mainInfo, pageCount);
@@ -357,6 +385,7 @@ namespace CustomPage{
         const config = { childList: true, subtree: true };
         const observer = new MutationObserver((mutations)=>{
             const radio = <HTMLInputElement>document.getElementById(`${blockId}-CustomPage-step-${pageNo}-input`);
+            if (radio == undefined) return false;
             for(const mutation of mutations){
                 radio.className = radio.className.replace(" CustomPage-radio-error", "");
                 const added = <HTMLElement>mutation.addedNodes[0]
@@ -380,7 +409,7 @@ namespace CustomPage{
         let test = true;
         let result: boolean;
         const requiredElements = required.map(v => <HTMLElement>document.getElementById(v));
-        for (let field of requiredElements){
+        requiredElements.forEach((field) => {
             field.classList.remove("error");
             result = true;
             switch (true) {
@@ -389,49 +418,101 @@ namespace CustomPage{
                     break;
 
                 case (field.className.indexOf("date") != -1):
-
+                    result = validateDate(field);
                     break;
 
                 case (field.className.indexOf("email") != -1):
-                
+                    result = validateEmailWeb(field);
                     break;
 
                 case (field.className.indexOf("radio") != -1 || field.className.indexOf("checkbox") != -1):
-            
+                    result = validateChecks(field);
                     break;
 
                 case (field.className.indexOf("textarea") != -1):
-        
+                    result = validateDefault(field, "textarea");
                     break;
 
                 case (field.className.indexOf("website") != -1):
-                    
+                    result = validateEmailWeb(field, true);
                     break;
 
                 default:
                     result = validateDefault(field);
                     break;
             }
-            if (result) continue;
+            if (result) return;
             field.classList.add("error");
             //TODO: <div class="field-error">THIS FIELD is required.</div> add these
             test = false;
-        }
+        });
         return test;
+    }
+
+    function validateChecks(field: HTMLElement): boolean{
+        const inputs = field.getElementsByTagName("input");
+        for(const input of inputs){
+            if (input.checked) return true;
+        }
+        return false;
+    }
+
+    function validateEmailWeb(field: HTMLElement, isWebsite: boolean = false): boolean{
+        //from emailregex.com
+        const regex = /(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/
+        const webex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/
+
+        const inputs = field.getElementsByTagName("input");
+        for(let input of inputs){
+            if (input.value.length == 0) return false;
+            if (isWebsite){
+                if (!webex.test(input.value)) return false;
+            } else {
+                if (!regex.test(input.value)) return false;
+            }
+        }
+        
+        return true;
+    }
+
+    function validateDate(field: HTMLElement): boolean{
+        const inputs = field.getElementsByTagName("input");
+
+        const process = (numStr: string, max: number, min: number = 1) => {
+            let num = numStr == undefined ? NaN : parseInt(numStr);
+            if(isNaN(num)) return false;
+            if(num > max || num < min) return false;
+            return true;
+        }
+
+        //day
+        let day = inputs[0].value;
+        if (!process(day, 31)) return false;
+
+        //month
+        let month = inputs[1].value;
+        if (!process(month, 12)) return false;
+
+        //year
+        let year = inputs[2].value;
+        if (!process(year, 3000, 1800)) return false;
+
+        return true;
     }
 
     function validateAddress(field: HTMLElement): boolean{
         const inputs = field.getElementsByTagName("input");
         for(let input of inputs){
-            if(input.name.indexOf("address2")){
+            if(input.name.indexOf("address2") == -1){
+                if (input.value.length < 2) return false;
                 if(input.value.length == 0) return false;
             }
         }
         return true;
     }
 
-    function validateDefault(field: HTMLElement): boolean{
-        const inputs = field.getElementsByTagName("input");
+    function validateDefault(field: HTMLElement, tag: keyof HTMLElementTagNameMap = "input"): boolean{
+        const inputs = <any>field.getElementsByTagName(tag);
         for(let input of inputs){
             if (input.value.length == 0) return false;
         }
