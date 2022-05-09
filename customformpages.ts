@@ -139,7 +139,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 fields.prepend(overflow);
 
                 //Step indicators, should be optional
-                if(pageArr[0]?.params?.get("IncludeSteps") == "true"){
+                let includeSteps = <string>pageArr[0]?.params?.get("IncludeSteps");
+                if(includeSteps == undefined || includeSteps.indexOf("true") != -1){
                     const steps = CustomPage.createSteps(mainInfo[formCount], pageCount, boxList);
                     fields.prepend(steps);
                 }
@@ -171,8 +172,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 namespace CustomPage{
 
+    //TODO: Parse the split[1] bit, then adapt the code to parsed strings!
     export function processParams(parameters: string){
-        const params = new Map();
+        const params = new Map<string,any>();
         const initArr = parameters.split(";");
         for (let item of initArr){
             const split = item.split("=");
@@ -204,9 +206,7 @@ namespace CustomPage{
 
     }
 
-    export function movePages(mainInfo: Forms, boxList: string[], oldStep?: number){
-        let animation = false;
-
+    export function movePages(mainInfo: Forms, boxList: string[], oldStep?: number, animation: boolean = false){
         if(animation && oldStep != undefined){
 
             let target = <HTMLElement>document.getElementById(boxList[mainInfo.step]);
