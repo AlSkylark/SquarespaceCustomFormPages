@@ -160,7 +160,7 @@ var CustomPage;
         };
     }
     function movePages(mainInfo, boxList, oldStep) {
-        let animation = true;
+        let animation = false;
         if (animation && oldStep != undefined) {
             let target = document.getElementById(boxList[mainInfo.step]);
             let from = document.getElementById(boxList[oldStep]);
@@ -460,114 +460,148 @@ var CustomPage;
     }
     CustomPage.setContainer = setContainer;
     function getCustomPageStyle() {
-        const style = `
-            :root{
-                --CustomPage-container-size: 0px;
-                --CustomPage-size: 0px;
-                --CustomPage-step: 0;
-                --CustomPage-animation-time: 300ms;
-            }
-            .CustomPage-invisible{
-                visibility: hidden;
-            }
-            .CustomPage-toggle{
-                display: none;
-            }
-            .CustomPage-overflow{
-                width: var(--CustomPage-size);
-                overflow: hidden;
-            }
-            .CustomPage-animation{
-                transform: translateX(calc( (var(--CustomPage-size) * var(--CustomPage-step)) * -1 ));
-                transition: transform var(--CustomPage-animation-time) ease-in-out;
-            }
-            .CustomPage-container{
-                width: var(--CustomPage-container-size);
-                display: flex;
-            }
-            .CustomPage-page{
-                width: var(--CustomPage-size);
-                padding: 16px;
-            }
-            .CustomPage-buttonContainer{
-                display: flex;
-                gap: 10px;
-                justify-content: center;
-                margin-top: 30px;
-            }
-            .CustomPage-button{
-                border: 1px solid black;
-                color: black;
-                padding: 13px 20px;
-                font-size: 16px;
-                cursor: pointer;
-                border-radius: 5px;
-                transition: var(--CustomPage-animation-time);
-            }
-            .CustomPage-button:hover{
-                background-color: #f3fcff;
-            }
-            .CustomPage-steps-wrapper{
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            .CustomPage-step-divider{
-                width: 10%;
-                border: 2px solid lightgrey;
-            }
-            .CustomPage-step{
-                display: flex;
-                align-items: center;
-                position: relative;
-                cursor: pointer;
-            }
-            .CustomPage-radio{
-                appearance: none;
-                background-color: #fff;
-                margin: 0;
-                font: inherit;
-                color: blue;
-                width: 25px;
-                height: 25px;
-                box-shadow: inset 25px 25px lightblue;
-                border-radius: 50%;
-                display: grid;
-                place-content: center;
-                justify-items: center;
-                align-items: center;
-                cursor: pointer;
-            }
-            .CustomPage-radio::before{
-                content: "";
-                width: 25px;
-                height: 25px;
-                border-radius: 50%;
-                transform: scale(0);
-                transition: var(--CustomPage-animation-time) transform ease-in-out;
-                box-shadow: inset 25px 25px blue;
-            }
-            .CustomPage-radio-error{
-                box-shadow: inset 25px 25px #e6adad;
-            }
-            .CustomPage-radio-error::before{
-                box-shadow: inset 25px 25px #cc3b3b;
-            }
-            .CustomPage-radio:checked::before {
-                transform: scale(1);
-              }
-            .CustomPage-label{
-                font-family: arial;
-                color: white;
-                position: absolute;
-                margin-left: auto;
-                margin-right: auto;
-                left: 0;
-                right: 0;
-                text-align: center;
-                cursor: pointer;
-            }
-            `;
+        const style = `/*
+        * Prefixed by https://autoprefixer.github.io
+        * PostCSS: v8.4.12,
+        * Autoprefixer: v10.4.4
+        * Browsers: last 4 version
+        */
+        
+        
+                    :root{
+                        --CustomPage-container-size: 0px;
+                        --CustomPage-size: 0px;
+                        --CustomPage-step: 0;
+                        --CustomPage-animation-time: 300ms;
+                    }
+                    .CustomPage-invisible{
+                        visibility: hidden;
+                    }
+                    .CustomPage-toggle{
+                        display: none;
+                    }
+                    .CustomPage-overflow{
+                        width: var(--CustomPage-size);
+                        overflow: hidden;
+                    }
+                    .CustomPage-container{
+                        width: var(--CustomPage-container-size);
+                        display: -webkit-box;
+                        display: -ms-flexbox;
+                        display: flex;
+                    }
+                    .CustomPage-page{
+                        width: var(--CustomPage-size);
+                        padding: 16px;
+                    }
+                    .CustomPage-buttonContainer{
+                        display: grid;
+                        grid-gap: 10px;
+                        justify-content: center;
+                        margin-top: 30px;
+                        grid-auto-flow: column;
+                    }
+                    .CustomPage-button{
+                        border: 1px solid black;
+                        color: black;
+                        padding: 13px 20px;
+                        font-size: 16px;
+                        cursor: pointer;
+                        border-radius: 5px;
+                        -webkit-transition: var(--CustomPage-animation-time);
+                        -o-transition: var(--CustomPage-animation-time);
+                        transition: var(--CustomPage-animation-time);
+                    }
+                    .CustomPage-button:hover{
+                        background-color: #f3fcff;
+                    }
+                    .CustomPage-steps-wrapper{
+                        display: -webkit-box;
+                        display: -ms-flexbox;
+                        display: flex;
+                        -webkit-box-align: center;
+                            -ms-flex-align: center;
+                                align-items: center;
+                        -webkit-box-pack: center;
+                            -ms-flex-pack: center;
+                                justify-content: center;
+                    }
+                    .CustomPage-step-divider{
+                        width: 10%;
+                        border: 2px solid lightgrey;
+                    }
+                    .CustomPage-step{
+                        display: grid;
+                        align-content: center;
+                        justify-content: center;
+                        justify-items: center;
+                        align-items: center;
+                        position: relative;
+                        cursor: pointer;
+                    }
+                    .CustomPage-radio{
+                        -webkit-appearance: none;
+                           -moz-appearance: none;
+                                appearance: none;
+                        background-color: #fff;
+                        border: transparent;
+                        margin: 0;
+                        font: inherit;
+                        color: blue;
+                        width: 25px;
+                        height: 25px;
+                        -webkit-box-shadow: inset 25px 25px lightblue;
+                                box-shadow: inset 25px 25px lightblue;
+                        border-radius: 50%;
+                        display: -ms-grid;
+                        display: grid;
+                        place-content: center;
+                        justify-items: center;
+                        -webkit-box-align: center;
+                            -ms-flex-align: center;
+                                align-items: center;
+                        cursor: pointer;
+                    }
+                    .CustomPage-radio::before{
+                        content: "";
+                        width: 25px;
+                        height: 25px;
+                        border: transparent;
+                        border-radius: 50%;
+                        -webkit-transform: scale(0);
+                            -ms-transform: scale(0);
+                                transform: scale(0);
+                        -webkit-transition: var(--CustomPage-animation-time) transform ease-in-out;
+                        -o-transition: var(--CustomPage-animation-time) transform ease-in-out;
+                        transition: var(--CustomPage-animation-time) transform ease-in-out;
+                        -webkit-box-shadow: inset 25px 25px blue;
+                                box-shadow: inset 25px 25px blue;
+                    }
+                    .CustomPage-radio-error{
+                        -webkit-box-shadow: inset 25px 25px #e6adad;
+                                box-shadow: inset 25px 25px #e6adad;
+                    }
+                    .CustomPage-radio-error::before{
+                        -webkit-box-shadow: inset 25px 25px #cc3b3b;
+                                box-shadow: inset 25px 25px #cc3b3b;
+                    }
+                    .CustomPage-radio:checked::before {
+                        -webkit-transform: scale(1);
+                            -ms-transform: scale(1);
+                                transform: scale(1);
+                      }
+                    .CustomPage-label{
+                        font-family: arial;
+                        color: white;
+                        position: absolute;
+                        margin-left: auto;
+                        margin-right: auto;
+                        left: 0;
+                        right: 0;
+                        text-align: center;
+                        cursor: pointer;
+                    }
+                    `;
         return style;
     }
     CustomPage.getCustomPageStyle = getCustomPageStyle;
