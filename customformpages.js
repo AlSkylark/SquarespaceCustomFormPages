@@ -40,7 +40,6 @@ document.addEventListener("DOMContentLoaded", () => {
         let boxList = [];
         let currentPage;
         let pageCount = 0;
-        let findZero = false;
         let pageArr = [];
         //#region Initiator Loop
         //loop through all forms (should be just 1)
@@ -59,13 +58,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     let found = false;
                     const fieldId = field.id;
                     fieldArray[count] = fieldId;
-                    if (field.className.indexOf("required") != -1)
+                    if (field.classList.contains("required"))
                         requiredArr[count] = fieldId;
                     //check if we're in a "Custom Page=" field...
                     if (field.className == "form-item section") {
                         const title = field.firstElementChild;
                         //found custompage=0 or next custompage!
-                        if (title.className == "title" && title.innerText.indexOf("CustomPage=") != -1) {
+                        if (title.className == "title" && title.innerText.includes("CustomPage=")) {
                             field.style.display = "none";
                             const id = field.id;
                             let pageNo;
@@ -80,7 +79,6 @@ document.addEventListener("DOMContentLoaded", () => {
                             //page 0 can have parameters that apply to all other pages
                             let pageParams = new Map();
                             if (pageNo == 0) {
-                                findZero = true;
                                 const description = field === null || field === void 0 ? void 0 : field.children[1];
                                 if (description != undefined)
                                     pageParams = CustomPage.processParams(description.innerText);
@@ -108,8 +106,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 const overflow = CustomPage.createElement("div", `${blockId}-CustomPage-overflow`, "CustomPage-overflow");
                 fields.prepend(overflow);
                 //Step indicators, should be optional
-                if (((_b = (_a = pageArr[0]) === null || _a === void 0 ? void 0 : _a.params) === null || _b === void 0 ? void 0 : _b.get("IncludeSteps")) == "true") {
-                    const steps = CustomPage.createSteps(mainInfo[formCount], pageCount, boxList);
+                const includeSteps = (_b = (_a = pageArr[0]) === null || _a === void 0 ? void 0 : _a.params) === null || _b === void 0 ? void 0 : _b.get("IncludeSteps");
+                if (includeSteps === undefined || includeSteps === "true") {
+                    const steps = CustomPage.createSteps(mainInfo[formCount], pageCount, pageArr, boxList);
                     fields.prepend(steps);
                 }
                 //Insert the nav buttons here
@@ -119,11 +118,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 CustomPage.setContainer(blockId, boxList);
                 overflow.append(container);
                 //render pages
-                CustomPage.movePages(mainInfo[formCount], boxList);
+                const animationTiming = CustomPage.parseAnimation(pageArr);
+                CustomPage.movePages(mainInfo[formCount], boxList, undefined, animationTiming);
                 //we add the variables to the css after knowing the page count
                 const root = document.documentElement;
                 root.style.setProperty("--CustomPage-size", formSize);
                 root.style.setProperty("--CustomPage-container-size", formSize);
+                root.style.setProperty("--CustomPage-animation-time", `${animationTiming}ms`);
             }
         }
         //#endregion
@@ -132,6 +133,15 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 var CustomPage;
 (function (CustomPage) {
+    function parseAnimation(page) {
+        var _a, _b;
+        //assumes all options on CustomPage=0 might need changing if we determine we want step by step customization
+        let timing = parseInt((_b = (_a = page[0]) === null || _a === void 0 ? void 0 : _a.params) === null || _b === void 0 ? void 0 : _b.get("Animation"));
+        if (isNaN(timing))
+            timing = 0;
+        return timing;
+    }
+    CustomPage.parseAnimation = parseAnimation;
     function processParams(parameters) {
         const params = new Map();
         const initArr = parameters.split(";");
@@ -142,7 +152,7 @@ var CustomPage;
         return params;
     }
     CustomPage.processParams = processParams;
-    function animateContainer(blockId, target, from, direction) {
+    function animateContainer(blockId, target, from, direction, timing = 0) {
         const root = document.documentElement;
         const container = document.getElementById(`${blockId}-CustomPage-container`);
         let width = getComputedStyle(root).getPropertyValue("--CustomPage-size");
@@ -154,14 +164,13 @@ var CustomPage;
         //begin animation
         from.classList.remove("CustomPage-toggle");
         target.classList.remove("CustomPage-toggle");
-        container.animate(keyframes, { iterations: 1, duration: 200, }).onfinish = () => {
+        container.animate(keyframes, { iterations: 1, duration: timing, }).onfinish = () => {
             from.classList.add("CustomPage-toggle");
             root.style.setProperty("--CustomPage-container-size", width);
         };
     }
-    function movePages(mainInfo, boxList, oldStep) {
-        let animation = false;
-        if (animation && oldStep != undefined) {
+    function movePages(mainInfo, boxList, oldStep, animation = 0) {
+        if (animation > 0 && oldStep != undefined) {
             let target = document.getElementById(boxList[mainInfo.step]);
             let from = document.getElementById(boxList[oldStep]);
             for (let i = 0; i < boxList.length; i++) {
@@ -169,7 +178,7 @@ var CustomPage;
                 pageEl.classList.add("CustomPage-toggle");
             }
             let direction = mainInfo.step > oldStep ? Direction.Forward : Direction.Backward;
-            animateContainer(mainInfo.id, target, from, direction);
+            animateContainer(mainInfo.id, target, from, direction, animation);
         }
         else {
             for (let i = 0; i < boxList.length; i++) {
@@ -208,7 +217,8 @@ var CustomPage;
     function navButtons(mainInfo, pageCount, pageArr, boxList) {
         var _a, _b;
         const blockId = mainInfo.id;
-        const hasSteps = ((_b = (_a = pageArr[0]) === null || _a === void 0 ? void 0 : _a.params) === null || _b === void 0 ? void 0 : _b.get("IncludeSteps")) == "true" ? true : false;
+        const hasSteps = ((_b = (_a = pageArr[0]) === null || _a === void 0 ? void 0 : _a.params) === null || _b === void 0 ? void 0 : _b.get("IncludeSteps")) === "true" ? true : false;
+        const animationTiming = parseAnimation(pageArr);
         //create the button container
         const bttnContainer = CustomPage.createElement("div", `${blockId}-CustomPage-button-container`, "CustomPage-buttonContainer");
         const next = CustomPage.createElement("div", `${blockId}-next-button`, `CustomPage-button`);
@@ -234,7 +244,7 @@ var CustomPage;
             renderNav(mainInfo, pageCount);
             if (hasSteps)
                 moveRadios(mainInfo);
-            movePages(mainInfo, boxList, oldStep);
+            movePages(mainInfo, boxList, oldStep, animationTiming);
         };
         next.addEventListener("click", () => { move(ButtonType.Next); });
         prev.addEventListener("click", () => { move(ButtonType.Prev); });
@@ -243,10 +253,11 @@ var CustomPage;
         return bttnContainer;
     }
     CustomPage.navButtons = navButtons;
-    function createSteps(mainInfo, pageCount, boxList) {
+    function createSteps(mainInfo, pageCount, pageArr, boxList) {
         const id = mainInfo.id;
         const radioName = `${id}-CustomPage-steps`;
         const wrapper = createElement("div", radioName, "CustomPage-steps-wrapper");
+        const animationTiming = parseAnimation(pageArr);
         for (let i = 0; i <= pageCount; i++) {
             const wrap = createElement("div", `${id}-CustomPage-step-${i}`, "CustomPage-step");
             wrap.setAttribute("custompage-step-check", i == 0 ? "true" : "false");
@@ -265,7 +276,7 @@ var CustomPage;
             //click event to go to X page
             wrap.addEventListener("click", (e) => {
                 if (wrap.getAttribute("custompage-step-check") == "true") {
-                    if (e.target.tagName.indexOf("LABEL") == -1) {
+                    if (e.target.tagName !== "LABEL") {
                         e.preventDefault();
                         return false;
                     }
@@ -275,7 +286,7 @@ var CustomPage;
                         e.preventDefault();
                         return false;
                     }
-                    movePages(mainInfo, boxList, oldStep);
+                    movePages(mainInfo, boxList, oldStep, animationTiming);
                     radio.checked = true;
                     renderNav(mainInfo, pageCount);
                 }
@@ -322,15 +333,14 @@ var CustomPage;
             if (radio == undefined)
                 return false;
             for (const mutation of mutations) {
-                radio.className = radio.className.replace(" CustomPage-radio-error", "");
+                radio.classList.remove("CustomPage-radio-error");
                 const added = mutation.addedNodes[0];
                 if (added != undefined) {
                     if (added.nodeType == 1) {
-                        if (added.className.indexOf("field-error") != -1) {
-                            radio.className += " CustomPage-radio-error";
+                        if (added.classList.contains("field-error")) {
+                            radio.classList.add("CustomPage-radio-error");
                             return;
                         }
-                        ;
                     }
                 }
             }
@@ -348,22 +358,22 @@ var CustomPage;
             field.classList.remove("error");
             result = true;
             switch (true) {
-                case (field.className.indexOf("address") != -1):
+                case (field.classList.contains("address")):
                     result = validateAddress(field);
                     break;
-                case (field.className.indexOf("date") != -1):
+                case (field.classList.contains("date")):
                     result = validateDate(field);
                     break;
-                case (field.className.indexOf("email") != -1):
+                case (field.classList.contains("email")):
                     result = validateEmailWeb(field);
                     break;
-                case (field.className.indexOf("radio") != -1 || field.className.indexOf("checkbox") != -1):
+                case (field.classList.contains("radio") || field.classList.contains("checkbox")):
                     result = validateChecks(field);
                     break;
-                case (field.className.indexOf("textarea") != -1):
+                case (field.classList.contains("textarea")):
                     result = validateDefault(field, "textarea");
                     break;
-                case (field.className.indexOf("website") != -1):
+                case (field.classList.contains("website")):
                     result = validateEmailWeb(field, true);
                     break;
                 default:
@@ -433,7 +443,7 @@ var CustomPage;
     function validateAddress(field) {
         const inputs = field.getElementsByTagName("input");
         for (let input of inputs) {
-            if (input.name.indexOf("address2") == -1) {
+            if (input.name !== "address2") {
                 if (input.value.length < 2)
                     return false;
                 if (input.value.length == 0)
