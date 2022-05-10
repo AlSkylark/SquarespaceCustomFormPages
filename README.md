@@ -10,3 +10,4 @@ For customization options, you can write them in the Description of the line fie
 
 Options are: 
 - "IncludeStep=" can be true or false. Shows numbered steps. *Default: True* 
+- "Animation=" can be any number indicating the duration time of transitions in ms. *Default: 0*

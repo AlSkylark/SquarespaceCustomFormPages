@@ -205,7 +205,7 @@ namespace CustomPage{
         from.classList.remove("CustomPage-toggle");
         target.classList.remove("CustomPage-toggle");
 
-        container.animate(keyframes, {iterations: 1, duration: timing, }).onfinish = ()=>{
+        container.animate(keyframes, {iterations: 1, duration: timing, easing: "ease-in-out"}).onfinish = ()=>{
             from.classList.add("CustomPage-toggle");
             root.style.setProperty("--CustomPage-container-size", width);
         };
