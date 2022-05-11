@@ -97,6 +97,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         count++;
                 }
                 //we put the rest of fields into the last box
+                if (pageCount === 0)
+                    continue;
                 let finalPage = { id: blockId, fields: fieldArray, required: requiredArr };
                 pageArr[pageCount] = finalPage;
                 boxList[pageCount] = CustomPage.setBoxes(blockId, pageCount, finalPage, BoxType.Last, submitButton);
@@ -375,6 +377,9 @@ var CustomPage;
                     break;
                 case (field.classList.contains("website")):
                     result = validateEmailWeb(field, true);
+                    break;
+                case (field.className.indexOf("customUpload") != -1):
+                    result = validateDefault(field, "textarea");
                     break;
                 default:
                     result = validateDefault(field);
