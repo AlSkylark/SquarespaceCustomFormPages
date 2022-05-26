@@ -180,6 +180,11 @@ namespace CustomPage{
         return timing;
     }
 
+    /*
+    Parameters so far:
+        IncludeSteps=true/false
+        Animation=0/number
+    */ 
     export function processParams(parameters: string){
         const params = new Map<string,any>();
         const initArr = parameters.split(";");
